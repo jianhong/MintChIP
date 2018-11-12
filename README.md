@@ -1,0 +1,2 @@
+# MintChIP
+pipeline for MintChIP
