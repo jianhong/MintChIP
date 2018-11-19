@@ -39,7 +39,8 @@ put the original fastq files in the folder of ${dataDir}/fastq/original/
 
 ## prepare inputs
 
-put the inputs for the samples with inputs. sample file is inputs.txt.
+put the inputs for the samples with inputs. sample file is inputs.txt. The column should be 
+treatment fastq file name, treatment barcode file name, input fastq file name, input barcode file name. 
 
 ## prepare additional parameters
 

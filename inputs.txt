@@ -1,6 +1,6 @@
-Sample_0001 Sample_0008
-Sample_0002 Sample_0008
-Sample_0003 Sample_0008
-Sample_0004 Sample_0008
-Sample_0005 Sample_0008
-Sample_0006 Sample_0007
+copy	Sample_0001	copy	Sample_0008
+copy	Sample_0002	copy	Sample_0008
+copy	Sample_0003	test	Sample_0008
+copy	Sample_0004	test	Sample_0008
+copy	Sample_0005	test	Sample_0005
+copy	Sample_0006	test	Sample_0007

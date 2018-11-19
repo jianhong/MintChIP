@@ -175,8 +175,9 @@ read0 = read0.replaceAll("_[ACGTN]+_1\$", "")
 additional = trimmomatic.get(read0)
 if(!additional){
   additional = ""
-}
+}else{
 println "${read0} additional parameter for trimmomatic: ${additional}"
+}
 """
 # call Trimmomatic
 echo "PE: ${readL} ${readR}"
@@ -235,7 +236,7 @@ process runBWA {
   storeDir "${params.outdir}/bwa/${runID}"
   
   output:
-    set sampleName, runID, file("${readL.simpleName}.bam"), file("${readL.simpleName}.bam.bai") into mappedFiles
+    set sampleName, runID, file("${runID}%${readL.simpleName}.bam"), file("${runID}%${readL.simpleName}.bam.bai") into mappedFiles
   
   script:
     """
@@ -244,8 +245,8 @@ process runBWA {
     ${params.samtools.path} fixmate -@ ${params.bwa.cpus} -m ${readL.simpleName}.bam ${readL.simpleName}.fixout.bam
     ${params.samtools.path} sort ${readL.simpleName}.fixout.bam -@ ${params.bwa.cpus} -o ${readL.simpleName}.sort.bam
     ${params.samtools.path} markdup ${readL.simpleName}.sort.bam ${readL.simpleName}.rem.bam -@ ${params.bwa.cpus} -r
-    mv ${readL.simpleName}.rem.bam ${readL.simpleName}.bam
-    ${params.samtools.path} index ${readL.simpleName}.bam
+    mv ${readL.simpleName}.rem.bam ${runID}%${readL.simpleName}.bam
+    ${params.samtools.path} index ${runID}%${readL.simpleName}.bam
     """
 }
 
@@ -266,16 +267,18 @@ mappedFiles.into{mappedFiles1; mappedFiles2; mappedFiles3; mappedFiles4}
 //inputChcp.println()
 //mappedFiles2.println()
 
-inputChFile=inputChcp.map{it.drop(1)}.flatten().cross(mappedFiles2)
+inputChFile=inputChcp.map{it-> "${it[2]}%${it[3]}"}.flatten().cross(mappedFiles2.map{it -> ["${it[1]}%${it[0]}", it]})
+  .map{it -> it[1]}
+//inputChFile.println{it->"inputChFile: $it"}
 
-mappedPair=mappedFiles1.cross(inputCh).map{
-  it -> [it[1].drop(1)[0], it[0]]
-}
+mappedPair=mappedFiles1.map{it -> ["${it[1]}%${it[0]}", it]}.cross(inputCh.map{it-> ["${it[0]}%${it[1]}", "${it[2]}%${it[3]}"]})
+  .map{it -> [it[1][1], it[0][1]]}
+
+//mappedPair.println{it->"mappedPair: $it"}
 
 // first item input, second item exp
 forHomerWithInput = inputChFile.cross(mappedPair)
-  .map{it -> [it[0][1], it[1][1]]}
-  .filter{it[0][1] == it[1][1]}.map{it->it.flatten()}
+  .map{it -> [it[0][1], it[1][1]]}.map{it->it.flatten()}
 
 //forHomerWithInput.println()
 
@@ -298,8 +301,9 @@ process runHOMERwithoutInput {
     additional = findPeaks.get(expSampleName)
     if(!additional){
       additional = ""
+    }else{
+      println "${expSampleName} additional parameter for findPeaks: ${additional}"
     }
-    println "${expSampleName} additional parameter for findPeaks: ${additional}"
     
     """
     ${params.homer.makeTagDirectory} ${expSampleName}_Tagdir ${expbam} -sspe
@@ -331,32 +335,35 @@ process runHOMERwithInput {
   output:
     file("${expSampleName}*") into homerFiles1
     file("${inputSampleName}*") into homerFiles2
+    file("${inputGroup}%${inputSampleName}_*") into homerFiles3
+    file("${expGroup}%${expSampleName}_*") into homerFiles4
   
   script:
-    additional = findPeaks.get(expSampleName})
+    additional = findPeaks.get(expSampleName)
     if(!additional){
       additional = ""
+    }else{
+      println "${expSampleName} additional parameter for findPeaks: ${additional}"
     }
-    println "${expSampleName} additional parameter for findPeaks: ${additional}"
     """
-    ${params.homer.makeTagDirectory} ${inputSampleName}_Tagdir ${inputbam} -sspe
-    ${params.homer.makeUCSCfile} ${inputSampleName}_Tagdir -name ${inputSampleName}_Chr1-10 \\
+    ${params.homer.makeTagDirectory} ${inputGroup}%${inputSampleName}_Tagdir ${inputbam} -sspe
+    ${params.homer.makeUCSCfile} ${inputGroup}%${inputSampleName}_Tagdir -name ${inputSampleName}_Chr1-10 \\
     -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
     -o ${inputSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
-    ${params.homer.makeUCSCfile} ${inputSampleName}_Tagdir -name ${inputSampleName}_Chr11 \\
+    ${params.homer.makeUCSCfile} ${inputGroup}%${inputSampleName}_Tagdir -name ${inputSampleName}_Chr11 \\
     -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
     -o ${inputSampleName}_Chr11-.bedgraph -norm 1e7
     
-    ${params.homer.makeTagDirectory} ${expSampleName}_Tagdir ${expbam} -sspe
-    ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr1-10 \\
+    ${params.homer.makeTagDirectory} ${expGroup}%${expSampleName}_Tagdir ${expbam} -sspe
+    ${params.homer.makeUCSCfile} ${expGroup}%${expSampleName}_Tagdir -name ${expSampleName}_Chr1-10 \\
     -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
     -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
-    ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr11 \\
+    ${params.homer.makeUCSCfile} ${expGroup}%${expSampleName}_Tagdir -name ${expSampleName}_Chr11 \\
     -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
     -o ${expSampleName}_Chr11-.bedgraph -norm 1e7
     
-    ${params.homer.findPeaks} ${expSampleName}_Tagdir ${params.homer.findPeaksOptions} \\
-    -i ${inputSampleName}_Tagdir \\
+    ${params.homer.findPeaks} ${expGroup}%${expSampleName}_Tagdir ${params.homer.findPeaksOptions} \\
+    -i ${inputGroup}%${inputSampleName}_Tagdir \\
     -o ${expSampleName}_Calledpeaks.txt \\
     ${additional}
 
