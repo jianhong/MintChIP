@@ -20,12 +20,50 @@ echo true
 ParamsHelper.checkNonEmptyParam(params.dataDir, "dataDir");
 ParamsHelper.checkNonEmptyParam(params.barcode, "barcode");
 
+String pwd = System.getProperty("user.dir")
+
+// input files
+def inputs = []
+if (params.inputs){
+  new File(params.inputs).eachLine{
+    line -> 
+      inputs << line.split("\\s")
+  }
+}
+def withInput = []
+if (params.inputs){
+  new File(params.inputs).eachLine{
+    line -> 
+      withInput << line.split("\\s")[0]
+  }
+}
+
+//additional parameters for trimmomatic
+Map<String,String> trimmomatic = new HashMap<String,String>()
+if (params.trim){
+  new File(params.trim).eachLine{
+    line -> 
+      def p=line.split("\\t")
+      trimmomatic.put(p[0], p[1])
+  }
+}
+//additional parameters for findPeak
+Map<String,String> findPeaks = new HashMap<String,String>()
+if (params.findPeaks){
+  new File(params.findPeaks).eachLine{
+    line -> 
+      def p=line.split("\\t")
+      findPeaks.put(p[0], p[1])
+  }
+}
+
 log.info """\
 R E A D   P R E P R O C E S S I N G   P I P E L I N E
 =====================================================
 dataDir : ${params.dataDir}
 barcode : ${params.barcode}
 outdir  : ${params.outdir}
+input   : ${inputs}
 """
 .stripIndent()
 
@@ -83,7 +121,7 @@ file barcode
 storeDir "${params.outdir}/demultiplexed"
 
 output:
-file("${runID}/${runID}__jemultiplexer_out_stats.txt") into jemultiplexerStats
+file("${runID}/${runID}%jemultiplexer_out_stats.txt") into jemultiplexerStats
 file("${runID}/*_1.txt.gz") into readPairsDemultiedTrimmingL
 file("${runID}/*_2.txt.gz") into readPairsDemultiedTrimmingR
 
@@ -101,7 +139,7 @@ Q=$params.je.MIN_BASE_QUALITY
 for i in ${runID}/* 
 do
 i=`basename \$i`
-mv ${runID}/\$i ${runID}/${runID}__\$i
+mv ${runID}/\$i ${runID}/${runID}%\$i
 done
 """
 }
@@ -122,24 +160,33 @@ cpus params.trimmomatic.cpus
 input:
 set file(readL), file(readR) from readPairsDemultiedTrimFlat
 
-storeDir "${params.outdir}/trimmed"
+storeDir "${params.outdir}/trimmed/${GROUP}"
 
 output:
-set file("${readL.simpleName}.R1.paired.fq.gz"), file("${readL.simpleName}.R2.paired.fq.gz") into readPairsTrimmed
-set file("${readL.simpleName}.R1.unpaired.fq.gz"), file("${readL.simpleName}.R2.unpaired.fq.gz") into readUnpairesTrimmed
+set GROUP, read0, file("${read0}.R1.paired.fq.gz"), file("${read0}.R2.paired.fq.gz") into readPairsTrimmed
+set GROUP, read0, file("${read0}.R1.unpaired.fq.gz"), file("${read0}.R2.unpaired.fq.gz") into readUnpairesTrimmed
 
 script:
+GROUP = readL.simpleName
+GROUP = GROUP.tokenize('%')[0]
+read0 = readL.simpleName
+read0 = read0.replace("${GROUP}%", "")
+read0 = read0.replaceAll("_[ACGTN]+_1\$", "")
+additional = trimmomatic.get(read0)
+if(!additional){
+  additional = ""
+}
+println "${read0} additional parameter for trimmomatic: ${additional}"
 """
 # call Trimmomatic
 echo "PE: ${readL} ${readR}"
-${params.trimmomatic.path} PE -phred33 -threads ${params.trimmomatic.cpus} \\
+${params.trimmomatic.path} PE -threads ${params.trimmomatic.cpus} \\
 ${readL} ${readR} \\
-${readL.simpleName}.R1.paired.fq.gz ${readL.simpleName}.R1.unpaired.fq.gz ${readL.simpleName}.R2.paired.fq.gz ${readL.simpleName}.R2.unpaired.fq.gz \\
-ILLUMINACLIP:${params.trimmomatic.adapters}:2:30:10 \\
-LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:18
+${read0}.R1.paired.fq.gz ${read0}.R1.unpaired.fq.gz ${read0}.R2.paired.fq.gz ${read0}.R2.unpaired.fq.gz \\
+${params.trimmomatic.options} \\
+${additional}
 """
 }
-
 
 readPairsTrimmed.into{readPairsFastQCTrimmed; readPairsRunMapping}
 
@@ -153,18 +200,19 @@ process runFastQCTrimmed {
 cpus params.fastqc.cpus
 
 input:
-set file(readL), file(readR) from readPairsFastQCTrimmed
+set runID, sampleName, file(readL), file(readR) from readPairsFastQCTrimmed
 
-storeDir "${params.outdir}/reports/fastqc-trimmed"
+storeDir "${params.outdir}/reports/fastqc-trimmed/${runID}"
 
 output:
-set file('*.zip'), file('*.html') into fastqcOutputTrimmed
+set runID, sampleName, file('*.zip'), file('*.html') into fastqcOutputTrimmed
 
 script:
 """
 ${params.fastqc.path} -t ${params.fastqc.cpus} -o . ${readL} ${readR}
 """
 }
+
 
 // --------------------------------------------------------------------------
 // Step 2b) Align reads using BWA-MEM
@@ -178,17 +226,16 @@ ${params.fastqc.path} -t ${params.fastqc.cpus} -o . ${readL} ${readR}
 // The alignments are written to the temporary files alignment.bam. These
 // BAM files are already sorted.
 
-// bwa mem -M -t 24 /work/yk170/Reference/mm10/Sequence/BWAIndex/genome.fa R1.paired.fq.gz R2.paired.fq.gz > bwa.sam
 process runBWA {
   cpus params.bwa.cpus
   
   input:
-    set file(readL), file(readR) from readPairsRunMapping
+    set runID, sampleName, file(readL), file(readR) from readPairsRunMapping
   
-  storeDir "${params.outdir}/bwa"
+  storeDir "${params.outdir}/bwa/${runID}"
   
   output:
-    set file("${readL.simpleName}.bam"), file("${readL.simpleName}.bam.bai") into mappedFiles
+    set sampleName, runID, file("${readL.simpleName}.bam"), file("${readL.simpleName}.bam.bai") into mappedFiles
   
   script:
     """
@@ -202,6 +249,7 @@ process runBWA {
     """
 }
 
+
 // --------------------------------------------------------------------------
 // Step 2c) run Homer
 //
@@ -211,29 +259,109 @@ process runBWA {
 // - pos2bed
 // --------------------------------------------------------------------------
 
-process runHOMER {
+// pair exp with inputs
+
+Channel.from(inputs).into{inputCh; inputChcp}
+mappedFiles.into{mappedFiles1; mappedFiles2; mappedFiles3; mappedFiles4}
+//inputChcp.println()
+//mappedFiles2.println()
+
+inputChFile=inputChcp.map{it.drop(1)}.flatten().cross(mappedFiles2)
+
+mappedPair=mappedFiles1.cross(inputCh).map{
+  it -> [it[1].drop(1)[0], it[0]]
+}
+
+// first item input, second item exp
+forHomerWithInput = inputChFile.cross(mappedPair)
+  .map{it -> [it[0][1], it[1][1]]}
+  .filter{it[0][1] == it[1][1]}.map{it->it.flatten()}
+
+//forHomerWithInput.println()
+
+// without input
+forHomerWithoutInput = mappedFiles3.filter{it->!(it[0] in withInput)}
+//forHomerWithoutInput.println()
+
+process runHOMERwithoutInput {
   cpus params.homer.cpus
   
   input:
-    set file(bam), file(bamIndex) from mappedFiles
+    set expSampleName, expGroup, file(expbam), file(expbamIndex) from forHomerWithoutInput
   
-  storeDir "${params.outdir}/homer"
+  storeDir "${params.outdir}/homer/${expGroup}/${expSampleName}"
   
   output:
-    set file("${bam.simpleName}*") into homerFiles
+    file("${expSampleName}*") into homerFiles0
   
   script:
+    additional = findPeaks.get(expSampleName)
+    if(!additional){
+      additional = ""
+    }
+    println "${expSampleName} additional parameter for findPeaks: ${additional}"
+    
     """
-    ${params.homer.makeTagDirectory} ${bam.simpleName}_Tagdir ${bam} -sspe
-    ${params.homer.makeUCSCfile} ${bam.simpleName}_Tagdir -name ${bam.simpleName}_Chr1-10 \\
+    ${params.homer.makeTagDirectory} ${expSampleName}_Tagdir ${expbam} -sspe
+    ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr1-10 \\
     -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
-    -o ${bam.simpleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
-    ${params.homer.makeUCSCfile} ${bam.simpleName}_Tagdir -name ${bam.simpleName}_Chr11 \\
+    -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
+    ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr11 \\
     -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
-    -o ${bam.simpleName}_Chr11-.bedgraph -norm 1e7
-    ${params.homer.findPeaks} ${bam.simpleName}_Tagdir -region -size 1000 -minDist 2000 -C 0 -L 50 \\
-    -o ${bam.simpleName}_Calledpeaks.txt
-    ${params.homer.annotatePeaks} ${bam.simpleName}_Calledpeaks.txt mm10 > ${bam.simpleName}_Annotatedlist.txt
-    ${params.homer.pos2bed} ${bam.simpleName}_Calledpeaks.txt -o ${bam.simpleName}.bed -track ${bam.simpleName}
+    -o ${expSampleName}_Chr11-.bedgraph -norm 1e7
+    
+    ${params.homer.findPeaks} ${expSampleName}_Tagdir ${params.homer.findPeaksOptions} \\
+    -o ${expSampleName}_Calledpeaks.txt \\
+    ${additional}
+
+    ${params.homer.annotatePeaks} ${expSampleName}_Calledpeaks.txt mm10 > ${expSampleName}_Annotatedlist.txt
+    ${params.homer.pos2bed} ${expSampleName}_Calledpeaks.txt -o ${expSampleName}.bed -track ${expSampleName}
     """
+}
+
+
+process runHOMERwithInput {
+  cpus params.homer.cpus
+  
+  input:
+    set inputSampleName, inputGroup, file(inputbam), file(inputbamIndex), expSampleName, expGroup, file(expbam), file(expbamIndex) from forHomerWithInput
+  
+  storeDir "${params.outdir}/homer/${expGroup}/${expSampleName}"
+  
+  output:
+    file("${expSampleName}*") into homerFiles1
+    file("${inputSampleName}*") into homerFiles2
+  
+  script:
+    additional = findPeaks.get(expSampleName})
+    if(!additional){
+      additional = ""
+    }
+    println "${expSampleName} additional parameter for findPeaks: ${additional}"
+    """
+    ${params.homer.makeTagDirectory} ${inputSampleName}_Tagdir ${inputbam} -sspe
+    ${params.homer.makeUCSCfile} ${inputSampleName}_Tagdir -name ${inputSampleName}_Chr1-10 \\
+    -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
+    -o ${inputSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
+    ${params.homer.makeUCSCfile} ${inputSampleName}_Tagdir -name ${inputSampleName}_Chr11 \\
+    -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
+    -o ${inputSampleName}_Chr11-.bedgraph -norm 1e7
+    
+    ${params.homer.makeTagDirectory} ${expSampleName}_Tagdir ${expbam} -sspe
+    ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr1-10 \\
+    -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
+    -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
+    ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr11 \\
+    -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
+    -o ${expSampleName}_Chr11-.bedgraph -norm 1e7
+    
+    ${params.homer.findPeaks} ${expSampleName}_Tagdir ${params.homer.findPeaksOptions} \\
+    -i ${inputSampleName}_Tagdir \\
+    -o ${expSampleName}_Calledpeaks.txt \\
+    ${additional}
+
+    ${params.homer.annotatePeaks} ${expSampleName}_Calledpeaks.txt mm10 > ${expSampleName}_Annotatedlist.txt
+    ${params.homer.pos2bed} ${expSampleName}_Calledpeaks.txt -o ${expSampleName}.bed -track ${expSampleName}
+    """
+
 }

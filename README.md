@@ -37,10 +37,37 @@ barcode file should be a text file with two columns: sample_Name and barcode. sa
 
 put the original fastq files in the folder of ${dataDir}/fastq/original/
 
+## prepare inputs
+
+put the inputs for the samples with inputs. sample file is inputs.txt.
+
+## prepare additional parameters
+
+put additional parameters for findPeaks or trimmomatic in a text file. sample file is findPeaks.txt. 
+The delimiter must be tab.
+
 ## run pipeline
 
 ```
 nextflow run main.nf --dataDir fastq/original --barcode bar.txt
+```
+
+### with inputs
+
+```
+nextflow run main.nf --dataDir fastq/original --barcode bar.txt --inputs inputs.txt
+```
+
+### with additional parameters for findPeaks
+
+```
+nextflow run main.nf --dataDir fastq/original --barcode bar.txt --findPeaks findPeaks.txt
+```
+
+### with additional parameters for trimmomatic
+
+```
+nextflow run main.nf --dataDir fastq/original --barcode bar.txt --trim trimmomatic.txt
 ```
 
 ## output
