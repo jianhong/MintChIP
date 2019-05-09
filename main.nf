@@ -147,6 +147,33 @@ done
 readPairsDemultiedTrimmingL.flatten()
   .merge(readPairsDemultiedTrimmingR.flatten())
   .into{readPairsDemultiedTrimPF; readPairsDemultiedTrimFlat}
+  
+  
+// --------------------------------------------------------------------------
+// Step 1c) Run FastQC
+//
+// - fastqc for demultiplexed read
+// --------------------------------------------------------------------------
+
+process runFastQCdemultiplex {
+cpus params.fastqc.cpus
+
+input:
+set file(readL), file(readR) from readPairsDemultiedTrimPF
+
+storeDir "${params.outdir}/reports/fastqc-demulti/${GROUP}"
+
+output:
+set GROUP, file('*.zip'), file('*.html') into fastqcOutputDemultiplex
+
+script:
+GROUP = readL.simpleName
+GROUP = GROUP.tokenize('%')[0]
+"""
+${params.fastqc.path} -t ${params.fastqc.cpus} -o . ${readL} ${readR}
+"""
+}
+
 
 // --------------------------------------------------------------------------
 // Step 2) Run adapter trimming
@@ -280,11 +307,11 @@ mappedPair=mappedFiles1.map{it -> ["${it[1]}%${it[0]}", it]}.cross(inputCh.map{i
 forHomerWithInput = inputChFile.cross(mappedPair)
   .map{it -> [it[0][1], it[1][1]]}.map{it->it.flatten()}
 
-//forHomerWithInput.println()
+//forHomerWithInput.println{it->"withInput: $it"}
 
 // without input
 forHomerWithoutInput = mappedFiles3.filter{it->!(it[0] in withInput)}
-//forHomerWithoutInput.println()
+//forHomerWithoutInput.println{it->"withoutInput: $it"}
 
 process runHOMERwithoutInput {
   cpus params.homer.cpus
@@ -296,6 +323,7 @@ process runHOMERwithoutInput {
   
   output:
     file("${expSampleName}*") into homerFiles0
+    set expSampleName, expGroup, file(expbam), file(expbamIndex), file("${expSampleName}.bed") into ChIPQCwithoutInput
   
   script:
     additional = findPeaks.get(expSampleName)
@@ -337,6 +365,7 @@ process runHOMERwithInput {
     file("${inputSampleName}*") into homerFiles2
     file("${inputGroup}%${inputSampleName}_*") into homerFiles3
     file("${expGroup}%${expSampleName}_*") into homerFiles4
+    set expSampleName, expGroup, file(expbam), file(expbamIndex), inputSampleName, file(inputbam), file(inputbamIndex), file("${expSampleName}.bed") into ChIPQCwithInput
   
   script:
     additional = findPeaks.get(expSampleName)
@@ -372,3 +401,66 @@ process runHOMERwithInput {
     """
 
 }
+
+// --------------------------------------------------------------------------
+// Step 3a) run ChIPQC
+//
+// - 
+// --------------------------------------------------------------------------
+//set expSampleName, expGroup, file(expbam), file(expbamIndex), file(${expSampleName}.bed) into ChIPQCwithoutInput
+//set expSampleName, expGroup, file(expbam), file(expbamIndex), inputSampleName, file(inputbam), file(inputbamIndex), file("${expSampleName}.bed") into ChIPQCwithInput
+
+//def FILE_HEADER = ['SmpleID', 'Condition', 'bamReads', 'bamReadsIdx', 'Peaks', "\n"]
+//File file = new File("${params.outdir}/${params.chipqc.samples}")
+//if(file.exists()){
+//  assert file.delete()
+//  assert file.createNewFile()
+//}
+
+//boolean append = true
+//FileWriter fileWriter = new FileWriter(file, append)
+//BufferedWriter buffWriter = new BufferedWriter(fileWriter)
+
+//buffWriter.write(FILE_HEADER.join(','))
+//ChIPQCwithoutInput.each{ it ->
+//    buffWriter.write(it.join(","))
+//    buffWriter.write("\n")
+//  }
+
+//buffWriter.flush()
+//buffWriter.close()
+
+process runChIPQC1sampleWithoutInput {
+  cpus params.chipqc.cpus
+  
+  input:
+    set expSampleName, expGroup, file(expbam), file(expbamIndex), file(bedFile) from ChIPQCwithoutInput
+  
+  storeDir "${params.outdir}/${params.chipqc.reportFolder}/${expGroup}/${expSampleName}"
+  
+  output:
+    file("${expSampleName}*") into chipqcFiles1
+  
+  script:
+    """
+    Rscript "$baseDir/bin/chipqc1.R" ${expbam} ${bedFile} ${expSampleName}
+    """
+}
+
+process runChIPQC1sampleWithInput {
+  cpus params.chipqc.cpus
+  
+  input:
+    set expSampleName, expGroup, file(expbam), file(expbamIndex), inputSampleName, file(inputbam), file(inputbamIndex), file(bedFile) from ChIPQCwithInput
+  
+  storeDir "${params.outdir}/${params.chipqc.reportFolder}/${expGroup}"
+  
+  output:
+    file("${expSampleName}*") into chipqcFiles2
+  
+  script:
+    """
+    Rscript "$baseDir/bin/chipqc1.R" ${expbam} ${bedFile} ${expSampleName}
+    """
+}
+
