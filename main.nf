@@ -443,7 +443,7 @@ process runChIPQC1sampleWithoutInput {
   
   script:
     """
-    Rscript "$baseDir/bin/chipqc1.R" ${expbam} ${bedFile} ${expSampleName}
+    ${params.Rscript.path} "$baseDir/bin/chipqc1.R" ${expbam} ${bedFile} ${expSampleName}
     """
 }
 
@@ -460,7 +460,7 @@ process runChIPQC1sampleWithInput {
   
   script:
     """
-    Rscript "$baseDir/bin/chipqc1.R" ${expbam} ${bedFile} ${expSampleName}
+    ${params.Rscript.path} "$baseDir/bin/chipqc1.R" ${expbam} ${bedFile} ${expSampleName}
     """
 }
 
