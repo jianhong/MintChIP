@@ -19,6 +19,8 @@ pipeline for MintChIP
 
 [Homer](http://homer.ucsd.edu/homer/)
 
+[R](https://www.r-project.org/), ChIPQC[http://bioconductor.org/packages/release/bioc/html/ChIPQC.html]
+
 ### install
 
 ```
