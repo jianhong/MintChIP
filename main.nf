@@ -336,17 +336,18 @@ process runHOMERwithoutInput {
     """
     ${params.homer.makeTagDirectory} ${expSampleName}_Tagdir ${expbam} -sspe
     ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr1-10 \\
-    -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
-    -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
+    -skipChr ${params.homer.chrOtherThanChr1To10} \\
+    -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 ${params.homer.makeUCSCfileOptions}
     ${params.homer.makeUCSCfile} ${expSampleName}_Tagdir -name ${expSampleName}_Chr11 \\
-    -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
-    -o ${expSampleName}_Chr11-.bedgraph -norm 1e7
+    -skipChr ${params.homer.chr1To10} \\
+    -o ${expSampleName}_Chr11-.bedgraph ${params.homer.makeUCSCfileOptions}
     
     ${params.homer.findPeaks} ${expSampleName}_Tagdir ${params.homer.findPeaksOptions} \\
     -o ${expSampleName}_Calledpeaks.txt \\
     ${additional}
 
-    ${params.homer.annotatePeaks} ${expSampleName}_Calledpeaks.txt mm10 > ${expSampleName}_Annotatedlist.txt
+    ${params.homer.annotatePeaks} ${expSampleName}_Calledpeaks.txt ${params.species} \\
+    > ${expSampleName}_Annotatedlist.txt
     ${params.homer.pos2bed} ${expSampleName}_Calledpeaks.txt -o ${expSampleName}.bed -track ${expSampleName}
     """
 }
@@ -377,26 +378,27 @@ process runHOMERwithInput {
     """
     ${params.homer.makeTagDirectory} ${inputGroup}%${inputSampleName}_Tagdir ${inputbam} -sspe
     ${params.homer.makeUCSCfile} ${inputGroup}%${inputSampleName}_Tagdir -name ${inputSampleName}_Chr1-10 \\
-    -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
-    -o ${inputSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
+    -skipChr ${params.homer.chrOtherThanChr1To10} \\
+    -o ${inputSampleName}_Chr1-10.bedgraph -color 0,0,204 ${params.homer.makeUCSCfileOptions}
     ${params.homer.makeUCSCfile} ${inputGroup}%${inputSampleName}_Tagdir -name ${inputSampleName}_Chr11 \\
-    -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
-    -o ${inputSampleName}_Chr11-.bedgraph -norm 1e7
+    -skipChr ${params.homer.chr1To10} \\
+    -o ${inputSampleName}_Chr11-.bedgraph ${params.homer.makeUCSCfileOptions}
     
     ${params.homer.makeTagDirectory} ${expGroup}%${expSampleName}_Tagdir ${expbam} -sspe
     ${params.homer.makeUCSCfile} ${expGroup}%${expSampleName}_Tagdir -name ${expSampleName}_Chr1-10 \\
-    -skipChr chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chrX chrY \\
-    -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 -norm 1e7
+    -skipChr ${params.homer.chrOtherThanChr1To10} \\
+    -o ${expSampleName}_Chr1-10.bedgraph -color 0,0,204 ${params.homer.makeUCSCfileOptions}
     ${params.homer.makeUCSCfile} ${expGroup}%${expSampleName}_Tagdir -name ${expSampleName}_Chr11 \\
-    -skipChr chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \\
-    -o ${expSampleName}_Chr11-.bedgraph -norm 1e7
+    -skipChr ${params.homer.chr1To10} \\
+    -o ${expSampleName}_Chr11-.bedgraph ${params.homer.makeUCSCfileOptions}
     
     ${params.homer.findPeaks} ${expGroup}%${expSampleName}_Tagdir ${params.homer.findPeaksOptions} \\
     -i ${inputGroup}%${inputSampleName}_Tagdir \\
     -o ${expSampleName}_Calledpeaks.txt \\
     ${additional}
 
-    ${params.homer.annotatePeaks} ${expSampleName}_Calledpeaks.txt mm10 > ${expSampleName}_Annotatedlist.txt
+    ${params.homer.annotatePeaks} ${expSampleName}_Calledpeaks.txt ${params.species} \\
+    > ${expSampleName}_Annotatedlist.txt
     ${params.homer.pos2bed} ${expSampleName}_Calledpeaks.txt -o ${expSampleName}.bed -track ${expSampleName}
     """
 
