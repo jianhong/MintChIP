@@ -1,6 +1,0 @@
-copy	Sample_0001	copy	Sample_0008
-copy	Sample_0002	copy	Sample_0008
-copy	Sample_0003	test	Sample_0008
-copy	Sample_0004	test	Sample_0008
-copy	Sample_0005	test	Sample_0005
-copy	Sample_0006	test	Sample_0007
