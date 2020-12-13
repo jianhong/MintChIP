@@ -1,0 +1,28 @@
+name: demultiplex
+description: demultiplex by je-suite. 
+keywords:
+    - checksum
+tools:
+    - je-suite:
+        description: |
+            Je is a suite to handle barcoded fastq files with (or without) Unique Molecule Identifiers (UMIs) and filter read duplicates using these UMIs 
+        homepage: https://gbcs.embl.de/portal/tiki-index.php?page=Je
+        documentation: https://gbcs.embl.de/portal/tiki-index.php?page=Je
+input:
+    -
+        - fastq:
+            type: file
+            description: fastq gz files
+            pattern: "*.{gz}"
+        - barcode:
+            type: file
+            description: barcode file
+            pattern: "*.txt"
+output:
+    -
+        - fastq:
+            type: file
+            description: fastq gz files
+            pattern: "*.{gz}"
+authors:
+    - "@jianhong"
