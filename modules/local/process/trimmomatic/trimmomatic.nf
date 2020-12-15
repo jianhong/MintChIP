@@ -14,13 +14,13 @@ process JO_TRIMMOMATIC {
     conda (params.conda ? "${params.conda_softwares.trimmomatic}" : null)
 
     input:
-    tuple val(meta), path(reads)
+    tuple val(meta), val(barcode), val(name), path(reads)
     val options
 
     output:
-    tuple val(meta), path("*.trimmed.fq.gz"), emit: reads
-    tuple val(meta), path("*.unpaired.fq.gz"), emit: unpaired_reads
-    tuple val(meta), path("*report.txt"), emit: log
+    tuple val(meta1), path("*.trimmed.fq.gz"), emit: reads
+    tuple val(meta1), path("*.unpaired.fq.gz"), emit: unpaired_reads
+    tuple val(meta1), path("*report.txt"), emit: log
     path "*.version.txt", emit: version
 
     script:
@@ -31,11 +31,24 @@ process JO_TRIMMOMATIC {
         if (cores < 1) cores = 1
         if (cores > 4) cores = 4
     }
-
+    
+    //hard copy meta data
+    meta1    = [:]
+    meta1.id = "${meta.group}_${name}_${meta.techrep}"
+    meta1.single_end = meta.single_end
+    meta1.antibody = meta.antibody
+    meta1.control = meta.control?"${meta.control}_${name}":meta.control
+    meta1.md5 = meta.md5
+    meta1.peaktype = meta.peaktype
+    meta1.ctrl = meta.ctrl
+    meta1.barcode = barcode
+    meta1.techrep = meta.techrep
+    meta1.read_group = meta.read_group
+    
     // Added soft-links to original fastqs for consistent naming in MultiQC
     def ioptions = initOptions(options)
-    def prefix   = ioptions.suffix ? "${meta.id}${ioptions.suffix}" : "${meta.id}"
-    if (meta.single_end) {
+    def prefix   = ioptions.suffix ? "${meta1.id}${ioptions.suffix}" : "${meta1.id}"
+    if (meta1.single_end) {
         """
         [ ! -f  ${prefix}.fastq.gz ] && ln -s $reads ${prefix}.fastq.gz
         trimmomatic \\

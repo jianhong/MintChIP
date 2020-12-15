@@ -21,6 +21,11 @@ if (params.help) {
     exit 0
 }
 
+// Check file extension
+def hasExtension(it, extension) {
+    it.toString().toLowerCase().endsWith(extension.toLowerCase())
+}
+
 ////////////////////////////////////////////////////
 /* --         DEFAULT PARAMETER VALUES         -- */
 ////////////////////////////////////////////////////
@@ -160,6 +165,8 @@ include { MULTIQC                             } from './modules/local/process/mu
 include { INPUT_CHECK                         } from './modules/local/subworkflow/input_check'
 include { BAM_CLEAN                           } from './modules/local/subworkflow/bam_clean'
 
+include { GUNZIP_FILES as GUNZIP_FILES_FA
+          GUNZIP_FILES as GUNZIP_FILES_GTF    } from './modules/local/process/gunzip_files'
 include { JO_METAGENE_ANALYSIS                } from './modules/local/subworkflow/metagene_analysis'
 include { JO_FASTQC_DEMULTIPLEX_TRIMMOMATIC    } from './modules/local/subworkflow/demultiplex_fastqc_trimmomatic'
 include { JO_CHECKSUMS                        } from './modules/local/process/checksum/checksum'
@@ -180,7 +187,8 @@ include { DEEPTOOLS_PLOTPROFILE         } from './modules/nf-core/software/deept
 include { DEEPTOOLS_PLOTHEATMAP         } from './modules/nf-core/software/deeptools/plotheatmap/main'
 include { DEEPTOOLS_PLOTFINGERPRINT     } from './modules/nf-core/software/deeptools/plotfingerprint/main'
 include { PHANTOMPEAKQUALTOOLS          } from './modules/nf-core/software/phantompeakqualtools/main'
-include { MACS2_CALLPEAK                } from './modules/nf-core/software/macs2/callpeak/main'
+include { MACS2_CALLPEAK as MACS2_CALLPEAK_WITHOUT_CONTROL
+          MACS2_CALLPEAK                } from './modules/nf-core/software/macs2/callpeak/main'
 include { HOMER_ANNOTATEPEAKS as HOMER_ANNOTATEPEAKS_MACS2
           HOMER_ANNOTATEPEAKS as HOMER_ANNOTATEPEAKS_CONSENSUS } from './modules/nf-core/software/homer/annotatepeaks/main'
 include { SUBREAD_FEATURECOUNTS         } from './modules/nf-core/software/subread/featurecounts/main'
@@ -212,6 +220,13 @@ workflow {
     /*
      * Prepare genome files
      */
+    if(hasExtension(params.fasta, 'gz')){
+        GUNZIP_FILES_FA(ch_fasta).set{ch_fasta}
+    }
+    if(hasExtension(params.gtf, 'gz')){
+        GUNZIP_FILES_GTF(ch_gtf).set{ch_gtf}
+    }
+    
     ch_index = params.bwa_index ? Channel.value(file(params.bwa_index)) : BWA_INDEX ( ch_fasta, params.modules['bwa_index'] ).index
 
     if (makeBED) { ch_gene_bed = GTF2BED ( ch_gtf, [:] ) }
@@ -227,8 +242,8 @@ workflow {
     /*
      * Split fastq files by barcodes
      */
-    nextseq = params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
-    params.modules['trimgalore'].args += nextseq
+    //nextseq = params.trim_nextseq > 0 ? " --nextseq ${params.trim_nextseq}" : ''
+    //params.modules['trimgalore'].args += nextseq
     JO_FASTQC_DEMULTIPLEX_TRIMMOMATIC(
         INPUT_CHECK.out.reads,
         ch_barcode,
@@ -255,6 +270,8 @@ workflow {
     )
     ch_software_versions = ch_software_versions.mix(MAP_BWA_MEM.out.bwa_version.first())
     ch_software_versions = ch_software_versions.mix(MAP_BWA_MEM.out.samtools_version.first().ifEmpty(null))
+    
+    //MAP_BWA_MEM.out.bam.view()
 
     /*
      * Merge resequenced BAM files
@@ -270,6 +287,8 @@ workflow {
        .groupTuple(by: [0])
        .map { it ->  [ it[0], it[1].flatten() ] }
        .set { ch_sort_bam }
+    
+    //ch_sort_bam.view()
 
     PICARD_MERGESAMFILES (
         ch_sort_bam,
@@ -380,6 +399,8 @@ workflow {
         .combine(ch_control_bam_bai, by: 0)
         .map { it -> [ it[1] , it[2] + it[4], it[3] + it[5] ] }
         .set { ch_ip_control_bam_bai }
+        
+    //ch_ip_control_bam_bai.view()
 
     /*
      * plotFingerprint for IP and control together
@@ -411,7 +432,19 @@ workflow {
         fdr = params.macs_fdr ? "--qvalue ${params.macs_fdr}" : ''
         pvalue = params.macs_pvalue ? "--pvalue ${params.macs_pvalue}" : ''
         params.modules['macs2_callpeak'].args += " $pileup $fdr $pvalue"
+        
+        // call peaks without input
+        def callpeak_without_input = params.modules['macs2_callpeak']
+        callpeak_without_input.publish_dir += "/macs2_without_control"
+        BAM_CLEAN.out.bam.map{ meta, bam -> [meta, bam, []]}
+                         .set{ch_ip_bam_no_ctl}
 
+        MACS2_CALLPEAK_WITHOUT_CONTROL (
+            ch_ip_bam_no_ctl,
+            params.macs_gsize,
+            callpeak_without_input
+        )
+        
         // Create channel: [ val(meta), ip_bam, control_bam ]
         ch_ip_control_bam_bai
             .map { meta, bams, bais -> [ meta , bams[0], bams[1] ] }

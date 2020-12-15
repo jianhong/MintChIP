@@ -19,8 +19,8 @@ process PICARD_COLLECTMULTIPLEMETRICS {
     val options
 
     output:
-    tuple val(meta), path("*_metrics"), emit: metrics
-    tuple val(meta), path("*.pdf"), emit: pdf
+    tuple val(meta), path("*_metrics"), optional:true, emit: metrics
+    tuple val(meta), path("*.pdf"), optional:true, emit: pdf
     path "*.version.txt", emit: version
 
     script:

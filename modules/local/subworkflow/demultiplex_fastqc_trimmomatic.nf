@@ -53,20 +53,21 @@ workflow JO_FASTQC_DEMULTIPLEX_TRIMMOMATIC {
                                   .flatten()
                                   .map{
                                       it ->
-                                             entry = it.simpleName.toString()
+                                             def entry = it.simpleName.toString()
                                              [it.getParent().getName().toString(), entry.replaceAll("_[ACGTN]+_.*\$", ""), entry.replaceAll("^.*_([ACGTN]+)_.*\$", "\$1"), it]
                                   }
     //ch_trim_reads_p2.view()
     ch_trim_fq = ch_trim_reads_p1.join(ch_trim_reads_p2, by:[0, 1, 2])
+                                 .filter { !(it[3].simpleName.toString() ==~ /_unassigned_/) && !(it[4].simpleName.toString() ==~ /_unassigned_/) }
     //ch_trim_fq.view()
+    
     ch_trim_reads = JO_DEMULTIPLEX.out.fastq.map{[it[0].id, it[0]]}
-                            .join(ch_trim_fq, by:[0])
+                            .cross(ch_trim_fq)
                             .map{
-                                group, meta, name, barcode, fq_1, fq_2 ->
-                                meta.barcode = barcode
-                                meta.name = name
-                                meta.id = "${meta.group}_${meta.name}_${meta.techrep}"
-                                [meta, [fq_1, fq_2]]
+                                origin_group, split_fqs ->
+                                def (group, meta) = origin_group
+                                def (group1, name, barcode, fq_1, fq_2) = split_fqs
+                                [meta, barcode, name, [fq_1, fq_2]]
                             }
     //ch_trim_reads.view()
     
