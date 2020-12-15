@@ -104,7 +104,7 @@ conda info --envs
 ## metagene analysis
 
 ```
-nextflow run jianhong/chipseq -profile test -resume --genomicElements beds/*.bed
+nextflow run jianhong/MintChiP -profile test -resume --genomicElements beds/*.bed
 ```
 
 ## Get help
