@@ -13,6 +13,6 @@ process GUNZIP_FILES {
 
     script: // This script is bundled with the pipeline, in nf-core/chipseq/bin/
     """
-    gunzip -k --verbose --stdout --force ${gz} > ${gz.baseName}
+    gunzip --verbose --stdout --force ${gz} > ${gz.baseName}
     """
 }
