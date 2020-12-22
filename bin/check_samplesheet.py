@@ -145,10 +145,6 @@ def check_samplesheet(file_in, file_out):
                 else:
                     sample_run_dict[sample][replicate].append(sample_info)
 
-    ## Check if antibody and control columns have been specified at least once
-    if len(antibody_dict) == 0:
-        print_error("Antibody and control must be specified at least once!", '', '')
-
     ## Write validated samplesheet with appropriate columns
     antibody_group_dict = {}
     if len(sample_run_dict) > 0:

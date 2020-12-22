@@ -10,6 +10,7 @@ process JO_DEMULTIPLEX {
         mode: params.publish_dir_mode,
         saveAs: { filename -> saveFiles(filename:filename, options:options, publish_dir:task.process.tokenize(':')[-1].tokenize('_')[1].toLowerCase(), publish_id:meta.id) }
     
+    container (params.universalContainer? "${process.container}":"${process.container}")
     conda (params.conda ? "${params.conda_softwares.je}" : null)
     
     input:

@@ -10,6 +10,7 @@
 #  $ docker push jianhong/mintchip:$VERSION
 #  $ docker tag jianhong/mintchip:$VERSION jianhong/mintchip:latest
 #  $ docker push jianhong/mintchip:latest
+#  $ docker system prune -a
 #  $ cd ~
 #  $ docker pull jianhong/mintchip:latest
 #  $ mkdir tmp4mintchip
@@ -67,8 +68,8 @@ RUN wget https://github.com/FelixKrueger/TrimGalore/archive/0.6.6.tar.gz && \
     cp trim_galore /usr/local/sbin/ && cd .. && \
     rm 0.6.6.tar.gz && rm -rf TrimGalore-0.6.6
 
-RUN wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-Src-0.39.zip && \
-    unzip Trimmomatic-Src-0.39.zip && \
+RUN wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.39.zip && \
+    unzip Trimmomatic-0.39.zip && cd Trimmomatic-0.39 && \
     wget https://raw.githubusercontent.com/jianhong/MintChIP/dev/modules/local/process/trimmomatic/trimmomatic && \
     chmod +x trimmomatic && cp -r * /usr/local/sbin/ && \
     ln -s trimmomatic-0.39.jar /usr/local/sbin/trimmomatic.jar && \
@@ -81,7 +82,10 @@ RUN wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedGraphToBigWig 
 
 ## Install Bioconductor packages
 RUN Rscript -e "install.packages('BiocManager')"
-
+RUN Rscript -e 'BiocManager::install(c("optparse", "DiffBind", "ChIPpeakAnno", \
+                "rtracklayer", "ggplot2", "GenomicFeatures", "DESeq2", "vsn", \
+                "RColorBrewer", "pheatmap", "lattice", "BiocParallel", \
+                "reshape2", "scales", "UpSetR", "caTools"))'
 
 # Instruct R processes to use these empty files instead of clashing with a local version
 RUN touch .Rprofile
