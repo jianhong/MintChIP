@@ -162,10 +162,10 @@ class Schema {
 
     static String params_mqc_summary(summary) {
         String yaml_file_text  = """
-        id: 'nf-core-chipseq-summary'
+        id: 'nf-core-MintChIP-summary'
         description: " - this information is collected when the pipeline is started."
-        section_name: 'nf-core/chipseq Workflow Summary'
-        section_href: 'https://github.com/nf-core/chipseq'
+        section_name: 'nf-core/MintChIP Workflow Summary'
+        section_href: 'https://github.com/jianhong/MintChIP'
         plot_type: 'html'
         data: |
             <dl class=\"dl-horizontal\">
