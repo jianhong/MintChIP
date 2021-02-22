@@ -1,19 +1,19 @@
 ----------------------------------------------------
-                                        ,--./,-.
-        ___     __   __   __   ___     /,-._.--~\\
-  |\\ | |__  __ /  ` /  \\ |__) |__         }  {
-  | \\| |       \\__, \\__/ |  \\ |___     \\`-._,-`-,
-                                        `._,._,'
-  nf-core/mintchip v${version}
+                                          ,--./,-.
+  ___,         ___,                 ___  /,-._.--~\\
+  |  |  .      |__| .  __  __ |\\ | |__    }  {
+  |__|_ | |__| |__| | |__|    | \\| |     \\`-._,-`-,
+                                          `._,._,'
+  jianhong/mintchip v${version}
 ----------------------------------------------------
 
 Run Name: $runName
 
 <% if (success){
-    out << "## nf-core/mintchip execution completed successfully! ##"
+    out << "## jianhong/mintchip execution completed successfully! ##"
 } else {
     out << """####################################################
-## nf-core/mintchip execution completed unsuccessfully! ##
+## jianhong/mintchip execution completed unsuccessfully! ##
 ####################################################
 The exit status of the task that caused the workflow execution to fail was: $exitStatus.
 The full error message was:
@@ -36,5 +36,5 @@ Pipeline Configuration:
 <% out << summary.collect{ k,v -> " - $k: $v" }.join("\n") %>
 
 --
-nf-core/mintchip
+jianhong/mintchip
 https://github.com/jianhong/MintChIP
